@@ -33,6 +33,24 @@ jobs:
       - name: Run Safety (Dependencies)
         run: safety check --json > safety-report.json || true
       
+      - name: Generate Security Summary
+        run: |
+          echo "# 🔒 Security Scan Results" > security-summary.md
+          echo "" >> security-summary.md
+          
+          echo "## 📊 Bandit (SAST)" >> security-summary.md
+          BANDIT_ISSUES=$(jq '.results | length' bandit-report.json)
+          echo "- Issues found: $BANDIT_ISSUES" >> security-summary.md
+          jq -r '.results[] | "- \(.issue_severity): \(.issue_text) (\(.filename):\(.line_number))"' bandit-report.json >> security-summary.md || true
+          echo "" >> security-summary.md
+          
+          echo "## 📊 Safety (Dependencies)" >> security-summary.md
+          SAFETY_VULNS=$(jq '.vulnerabilities | length' safety-report.json)
+          echo "- Vulnerabilities found: $SAFETY_VULNS" >> security-summary.md
+          jq -r '.vulnerabilities[] | "- \(.package_name) \(.analyzed_version): \(.CVE // "No CVE") - \(.advisory[:100])..."' safety-report.json >> security-summary.md || true
+          
+          cat security-summary.md
+      
       - name: Upload SAST Reports
         uses: actions/upload-artifact@v4
         with:
@@ -41,6 +59,7 @@ jobs:
             bandit-report.json
             pylint-report.json
             safety-report.json
+            security-summary.md
 
   dast-scan:
     name: DAST - OWASP ZAP Scan
@@ -85,9 +104,19 @@ jobs:
     needs: [sast-scan, dast-scan]
     if: always()
     steps:
+      - name: Download Reports
+        uses: actions/download-artifact@v4
+        with:
+          name: sast-reports
+      
       - name: Display Summary
         run: |
-          echo "✅ Security scans completed"
-          echo "📊 SAST: SonarQube analysis finished"
-          echo "📊 DAST: OWASP ZAP scan finished"
-          echo "Check artifacts and SonarQube dashboard for detailed reports"
+          echo "# 🔒 Security Pipeline Results"
+          echo ""
+          if [ -f security-summary.md ]; then
+            cat security-summary.md
+          else
+            echo "⚠️ Summary file not found"
+          fi
+          echo ""
+          echo "📊 Check artifacts for detailed reports"
