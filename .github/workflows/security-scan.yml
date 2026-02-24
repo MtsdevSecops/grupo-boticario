@@ -34,7 +34,7 @@ jobs:
         run: safety check --json > safety-report.json || true
       
       - name: Upload SAST Reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sast-reports
           path: |
@@ -63,7 +63,7 @@ jobs:
             "zap-baseline.py -t http://localhost:5000 -r zap-report.html -J zap-report.json || true"
       
       - name: Upload ZAP Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: zap-report
           path: |
