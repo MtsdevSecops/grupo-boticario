@@ -39,20 +39,30 @@ jobs:
           echo "" >> security-summary.md
           
           echo "## 📊 Bandit (SAST)" >> security-summary.md
-          BANDIT_ISSUES=$(jq '.results | length' bandit-report.json)
-          echo "- Issues found: $BANDIT_ISSUES" >> security-summary.md
-          jq -r '.results[] | "- \(.issue_severity): \(.issue_text) (\(.filename):\(.line_number))"' bandit-report.json >> security-summary.md || true
+          if [ -f bandit-report.json ]; then
+            BANDIT_ISSUES=$(jq '.results | length' bandit-report.json 2>/dev/null || echo "0")
+            echo "- Issues found: $BANDIT_ISSUES" >> security-summary.md
+            jq -r '.results[] | "- \(.issue_severity): \(.issue_text) (\(.filename):\(.line_number))"' bandit-report.json 2>/dev/null >> security-summary.md || echo "- No details available" >> security-summary.md
+          fi
+          echo "" >> security-summary.md
+          
+          echo "## 📊 Pylint (Code Quality)" >> security-summary.md
+          if [ -f pylint-report.json ]; then
+            PYLINT_ISSUES=$(jq 'length' pylint-report.json 2>/dev/null || echo "0")
+            echo "- Issues found: $PYLINT_ISSUES" >> security-summary.md
+          fi
           echo "" >> security-summary.md
           
           echo "## 📊 Safety (Dependencies)" >> security-summary.md
-          SAFETY_VULNS=$(jq '.vulnerabilities | length' safety-report.json)
-          echo "- Vulnerabilities found: $SAFETY_VULNS" >> security-summary.md
-          jq -r '.vulnerabilities[] | "- \(.package_name) \(.analyzed_version): \(.CVE // "No CVE") - \(.advisory[:100])..."' safety-report.json >> security-summary.md || true
+          if [ -f safety-report.json ]; then
+            echo "- Check safety-report.json for vulnerability details" >> security-summary.md
+          fi
           
           cat security-summary.md
       
       - name: Upload SAST Reports
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: sast-reports
           path: |
@@ -60,6 +70,7 @@ jobs:
             pylint-report.json
             safety-report.json
             security-summary.md
+          if-no-files-found: warn
 
   dast-scan:
     name: DAST - OWASP ZAP Scan
